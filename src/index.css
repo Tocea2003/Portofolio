@@ -1,5 +1,10 @@
 @import url('https://fonts.googleapis.com/css2?family=Exo+2:wght@500;700;800&family=Manrope:wght@400;500;700&display=swap');
 
+html {
+  scroll-behavior: smooth;
+  scroll-padding-top: 72px;
+}
+
 :root {
   --text: #e9f6ff;
   --text-h: #f5fbff;
