@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import './App.css'
 
 /* ── Inline SVG icons ── */
@@ -43,6 +43,13 @@ const I = {
 function App() {
   const [scrolled, setScrolled] = useState(false)
   const [progress, setProgress] = useState(0)
+
+  const cursorDotRef = useRef(null)
+  const cursorRingRef = useRef(null)
+  const canvasRef = useRef(null)
+  const pageRef = useRef(null)
+  const mousePos = useRef({ x: -300, y: -300 })
+  const ringPos = useRef({ x: -300, y: -300 })
 
   /* scroll tracking */
   useEffect(() => {
@@ -94,10 +101,195 @@ function App() {
     return () => io.disconnect()
   }, [])
 
+  /* custom cursor — dot follows instantly, ring lags */
+  useEffect(() => {
+    let rafId
+    let visible = false
+
+    const onMove = (e) => {
+      mousePos.current = { x: e.clientX, y: e.clientY }
+      document.documentElement.style.setProperty('--mx', `${e.clientX}px`)
+      document.documentElement.style.setProperty('--my', `${e.clientY}px`)
+      if (!visible) {
+        ringPos.current = { x: e.clientX, y: e.clientY }
+        visible = true
+        if (cursorDotRef.current) {
+          cursorDotRef.current.style.opacity = '1'
+          cursorRingRef.current.style.opacity = '1'
+        }
+      }
+    }
+
+    const onLeave = () => {
+      visible = false
+      if (cursorDotRef.current) {
+        cursorDotRef.current.style.opacity = '0'
+        cursorRingRef.current.style.opacity = '0'
+      }
+    }
+
+    const tick = () => {
+      if (cursorDotRef.current) {
+        cursorDotRef.current.style.transform =
+          `translate(${mousePos.current.x - 5}px, ${mousePos.current.y - 5}px)`
+      }
+      ringPos.current.x += (mousePos.current.x - ringPos.current.x) * 0.12
+      ringPos.current.y += (mousePos.current.y - ringPos.current.y) * 0.12
+      if (cursorRingRef.current) {
+        cursorRingRef.current.style.transform =
+          `translate(${ringPos.current.x - 22}px, ${ringPos.current.y - 22}px)`
+      }
+      rafId = requestAnimationFrame(tick)
+    }
+    rafId = requestAnimationFrame(tick)
+
+    window.addEventListener('mousemove', onMove)
+    document.documentElement.addEventListener('mouseleave', onLeave)
+    return () => {
+      window.removeEventListener('mousemove', onMove)
+      document.documentElement.removeEventListener('mouseleave', onLeave)
+      cancelAnimationFrame(rafId)
+    }
+  }, [])
+
+  /* cursor scale-up on interactive elements */
+  useEffect(() => {
+    const SEL = 'button, a, .card, .stat-card, .skill-group, .profile-card'
+    const over = (e) => {
+      if (e.target.closest(SEL)) {
+        cursorRingRef.current?.classList.add('cursor-ring--active')
+        cursorDotRef.current?.classList.add('cursor-dot--active')
+      }
+    }
+    const out = (e) => {
+      if (e.target.closest(SEL)) {
+        cursorRingRef.current?.classList.remove('cursor-ring--active')
+        cursorDotRef.current?.classList.remove('cursor-dot--active')
+      }
+    }
+    document.addEventListener('mouseover', over)
+    document.addEventListener('mouseout', out)
+    return () => {
+      document.removeEventListener('mouseover', over)
+      document.removeEventListener('mouseout', out)
+    }
+  }, [])
+
+  /* 3D card tilt on mouse */
+  useEffect(() => {
+    const page = pageRef.current
+    if (!page) return
+    const SEL = '.card, .stat-card, .skill-group, .profile-card'
+    let active = null
+
+    const onMove = (e) => {
+      const card = e.target.closest(SEL)
+      if (active && active !== card) {
+        active.style.transform = ''
+        active.style.transition = 'transform 0.6s cubic-bezier(.4,0,.2,1), border-color 0.3s ease, box-shadow 0.3s ease'
+        active = null
+      }
+      if (!card) return
+      active = card
+      const r = card.getBoundingClientRect()
+      const x = (e.clientX - r.left) / r.width - 0.5
+      const y = (e.clientY - r.top) / r.height - 0.5
+      card.style.transition = 'transform 0.08s linear'
+      card.style.transform =
+        `perspective(900px) rotateY(${x * 9}deg) rotateX(${-y * 7}deg) translateZ(8px)`
+    }
+
+    const reset = () => {
+      if (active) {
+        active.style.transform = ''
+        active.style.transition = 'transform 0.6s cubic-bezier(.4,0,.2,1), border-color 0.3s ease, box-shadow 0.3s ease'
+        active = null
+      }
+    }
+
+    page.addEventListener('mousemove', onMove)
+    page.addEventListener('mouseleave', reset)
+    return () => {
+      page.removeEventListener('mousemove', onMove)
+      page.removeEventListener('mouseleave', reset)
+    }
+  }, [])
+
+  /* canvas particle network */
+  useEffect(() => {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    const ctx = canvas.getContext('2d')
+
+    const resize = () => {
+      canvas.width = window.innerWidth
+      canvas.height = window.innerHeight
+    }
+    resize()
+    window.addEventListener('resize', resize)
+
+    const N = 55
+    const pts = Array.from({ length: N }, () => ({
+      x: Math.random() * window.innerWidth,
+      y: Math.random() * window.innerHeight,
+      vx: (Math.random() - 0.5) * 0.28,
+      vy: (Math.random() - 0.5) * 0.28,
+      r: Math.random() * 1.2 + 0.4,
+    }))
+
+    let rafId
+    const LINK = 130
+
+    const draw = () => {
+      const W = canvas.width, H = canvas.height
+      ctx.clearRect(0, 0, W, H)
+
+      for (const p of pts) {
+        p.x += p.vx; p.y += p.vy
+        if (p.x < 0) p.x += W
+        if (p.x > W) p.x -= W
+        if (p.y < 0) p.y += H
+        if (p.y > H) p.y -= H
+        ctx.beginPath()
+        ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2)
+        ctx.fillStyle = 'rgba(120,217,255,0.45)'
+        ctx.fill()
+      }
+
+      for (let i = 0; i < N; i++) {
+        for (let j = i + 1; j < N; j++) {
+          const dx = pts[i].x - pts[j].x
+          const dy = pts[i].y - pts[j].y
+          const d = Math.sqrt(dx * dx + dy * dy)
+          if (d < LINK) {
+            ctx.beginPath()
+            ctx.moveTo(pts[i].x, pts[i].y)
+            ctx.lineTo(pts[j].x, pts[j].y)
+            ctx.strokeStyle = `rgba(120,217,255,${(1 - d / LINK) * 0.18})`
+            ctx.lineWidth = 0.6
+            ctx.stroke()
+          }
+        }
+      }
+
+      rafId = requestAnimationFrame(draw)
+    }
+    rafId = requestAnimationFrame(draw)
+
+    return () => {
+      cancelAnimationFrame(rafId)
+      window.removeEventListener('resize', resize)
+    }
+  }, [])
+
   const go = id => document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' })
 
   return (
     <>
+      {/* ── custom cursor ── */}
+      <div className="cursor-dot" ref={cursorDotRef} aria-hidden="true" />
+      <div className="cursor-ring" ref={cursorRingRef} aria-hidden="true" />
+
       {/* ── progress bar ── */}
       <div className="scroll-bar" style={{ width: `${progress}%` }} />
 
@@ -120,12 +312,14 @@ function App() {
         </div>
       </nav>
 
-      <main className="page">
+      <main className="page" ref={pageRef}>
         {/* ── background ── */}
         <div className="bg-orb orb-1" aria-hidden="true" />
         <div className="bg-orb orb-2" aria-hidden="true" />
         <div className="bg-orb orb-3" aria-hidden="true" />
         <div className="bg-grid" aria-hidden="true" />
+        <canvas className="particle-canvas" ref={canvasRef} aria-hidden="true" />
+        <div className="spotlight-overlay" aria-hidden="true" />
 
         {/* ═══════ HERO ═══════ */}
         <header id="hero" className="hero-section">
@@ -365,7 +559,7 @@ function App() {
               <p>Sunt deschis la noi provocari si colaborari.</p>
             </div>
             <div className="footer-links">
-              <a className="btn primary sm" href="https://www.linkedin.com/in/cristian-ioan-lavu-66633829b/" target="_blank" rel="noreferrer">
+              <a className="btn primary sm" href="https://www.linkedin.com/in/cristian-Ioan-lavu-66633829b/" target="_blank" rel="noreferrer">
                 {I.linkedin} LinkedIn
               </a>
               <a className="btn ghost sm" href="https://github.com/Tocea2003/Licenta" target="_blank" rel="noreferrer">

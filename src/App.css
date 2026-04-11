@@ -1039,6 +1039,91 @@ h1 {
 }
 
 /* ═══════════════════════════════════════
+   CUSTOM CURSOR
+   ═══════════════════════════════════════ */
+
+@media (hover: hover) and (pointer: fine) {
+  * { cursor: none !important; }
+}
+
+.cursor-dot {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 10px;
+  height: 10px;
+  background: #78d9ff;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0;
+  transition: opacity 0.3s ease, width 0.2s ease, height 0.2s ease,
+              background 0.2s ease, margin 0.2s ease;
+  box-shadow: 0 0 12px rgba(120, 217, 255, 0.9), 0 0 4px rgba(120, 217, 255, 0.6);
+  will-change: transform;
+}
+
+.cursor-dot--active {
+  width: 6px;
+  height: 6px;
+  margin: 2px;
+  background: #fff;
+  box-shadow: 0 0 18px rgba(120, 217, 255, 1), 0 0 6px #fff;
+}
+
+.cursor-ring {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 44px;
+  height: 44px;
+  border: 1.5px solid rgba(120, 217, 255, 0.55);
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 9998;
+  opacity: 0;
+  transition: opacity 0.3s ease, width 0.3s ease, height 0.3s ease,
+              border-color 0.3s ease, margin 0.3s ease;
+  will-change: transform;
+}
+
+.cursor-ring--active {
+  width: 62px;
+  height: 62px;
+  margin: -9px;
+  border-color: rgba(120, 217, 255, 0.85);
+  box-shadow: 0 0 16px rgba(120, 217, 255, 0.15);
+}
+
+/* ═══════════════════════════════════════
+   PARTICLE CANVAS
+   ═══════════════════════════════════════ */
+
+.particle-canvas {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+/* ═══════════════════════════════════════
+   MOUSE SPOTLIGHT OVERLAY
+   ═══════════════════════════════════════ */
+
+.spotlight-overlay {
+  position: fixed;
+  inset: 0;
+  background: radial-gradient(
+    600px circle at var(--mx, 50%) var(--my, 50%),
+    rgba(120, 217, 255, 0.045),
+    transparent 40%
+  );
+  pointer-events: none;
+  z-index: 0;
+  transition: background 0.1s ease;
+}
+
+/* ═══════════════════════════════════════
    SELECTION & SCROLLBAR
    ═══════════════════════════════════════ */
 
